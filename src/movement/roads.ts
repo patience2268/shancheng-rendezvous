@@ -62,9 +62,12 @@ export function compileRoads(network:RoadNetwork):CompiledRoads {
     const raw=smooth(road.path);
     // Flat collars and a smooth elevation profile avoid cutting through the merging deck.
     const arc=[0];for(let i=1;i<raw.length;i++)arc.push(arc.at(-1)!+length(raw[i-1],raw[i]));
-    const collar=JOIN_LENGTH+0.8,total=arc.at(-1)!;
+    const total=arc.at(-1)!,collar=Math.min(JOIN_LENGTH+(road.id==='inner-23'?2.5:.8),total*.3);
     raw.forEach((p,i)=>{const t=Math.max(0,Math.min(1,(arc[i]-collar)/(total-collar*2)));p[1]=road.path[0][1]+(road.path.at(-1)![1]-road.path[0][1])*t*t*(3-2*t);});
     const points=trim(trim(raw,JOIN_LENGTH).reverse(),JOIN_LENGTH).reverse();
+    // Trimming interpolates across sampled heights. Even a micrometre offset
+    // makes a junction edge appear exposed and creates a kerb across the road.
+    points[0][1]=road.path[0][1];points.at(-1)![1]=road.path.at(-1)![1];
     const left:Vec3[]=[],right:Vec3[]=[];
     for(let i=0;i<points.length;i++){
       const normal=(a:Vec3,b:Vec3):Point=>{const d=length(a,b)||1;return[-(b[2]-a[2])/d,(b[0]-a[0])/d];};

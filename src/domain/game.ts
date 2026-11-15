@@ -23,7 +23,7 @@ export class Game {
   constructor(level: Level) {
     validateLevel(level);
     this.level = level;
-    const start: RunSnapshot = { position: [...level.start.position], surfaceId: level.start.surface, facing: level.id === 'yangtze-cableway' ? Math.PI / 2 : Math.PI, stamina: 100, discoveries: [], consumedGroups: [], consumedRests: [], completedServices: [], distance: 0, rides: 0 };
+    const start: RunSnapshot = { position: [...level.start.position], surfaceId: level.start.surface, facing: level.id === 'yangtze-cableway' ? Math.PI / 2 : Math.PI, stamina: 100, discoveries: [], consumedGroups: [], consumedRests: [], completedServices: [], knownEntrances: level.transports.filter(t=>t.kind!=='lift').map(t=>t.id+':0'), distance: 0, rides: 0 };
     this.state = { ...copy(start), phase: 'briefing', paused: false, generation: 1, checkpoint: { id: 'start', name: '出发点', snapshot: copy(start) }, message: '', messageId: 0, moving: false, events: [] };
   }
   start(): void { if (this.state.phase === 'briefing') this.state.phase = 'exploring'; }
@@ -35,7 +35,7 @@ export class Game {
   pause(value = true): void { this.state.paused = value; this.state.moving = false; }
   snapshot(): RunSnapshot {
     const s = this.state;
-    return copy({ position: s.position, surfaceId: s.surfaceId, facing: s.facing, stamina: s.stamina, discoveries: s.discoveries, consumedGroups: s.consumedGroups, consumedRests: s.consumedRests, completedServices: s.completedServices, distance: s.distance, rides: s.rides });
+    return copy({ position: s.position, surfaceId: s.surfaceId, facing: s.facing, stamina: s.stamina, discoveries: s.discoveries, consumedGroups: s.consumedGroups, consumedRests: s.consumedRests, completedServices: s.completedServices, knownEntrances:s.knownEntrances, distance: s.distance, rides: s.rides });
   }
   update(input: Point, dt: number): void {
     const s = this.state;
@@ -71,6 +71,9 @@ export class Game {
   }
   private checkPlaces(): boolean {
     const s = this.state;
+    for(const t of this.level.transports)t.stops.forEach((stop,i)=>{
+      const id=t.id+':'+i;if(stop.surface===s.surfaceId&&distance(stop.position,s.position)<=3&&!s.knownEntrances.includes(id))s.knownEntrances.push(id);
+    });
     for (const d of this.level.discoveries) {
       if (d.surface === s.surfaceId && distance(d.position, s.position) <= 0.85 && !s.discoveries.includes(d.id)) {
         s.discoveries.push(d.id); this.notify('沿途发现 · ' + d.title,'discovery',{placeId:d.id,position:[...d.position]});

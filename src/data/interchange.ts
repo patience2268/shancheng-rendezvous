@@ -11,6 +11,8 @@ const nodes:RoadNode[]=[
   node('j','四层北端',[-12,15,-22],4),node('k','四层分流口',[-12,15,0],4),node('l','四层南端',[-12,15,22],4),
   node('m','五层西端',[-22,20,20],5),node('n','五层汇入口',[0,20,0],5),node('goal','五层赴约点',[22,20,-20],5),
   node('lookout','五层观景支路',[12,20,10],5),
+  node('east-three','三层东侧回望点',[40,10,-8],3),node('east-four','四层东侧转折',[42,15,-29],4),
+  node('north-four','四层北侧分流口',[0,15,-42],4),node('north-five','五层北侧汇入口',[16,20,-38],5),
 ];
 const roads:Road[]=[];
 function road(id:string,name:string,from:string,to:string,kind:Road['kind']='main',controls:Vec3[]=[]):void {
@@ -28,11 +30,17 @@ road('outer-45','西南回转匝道','l','m','ramp',[[-13,16,32],[-24,17.5,35],[
 road('five-west','五层斜向主线','m','n');road('five-east','五层斜向主线','n','goal');
 road('inner-12','内侧上行匝道 · 一至二层','a','q','ramp',[[-7,1,2],[-2,3,1]]);
 road('two-link','二层横向接驳','q','e');
-road('inner-23','内侧上行匝道 · 二至三层','q','h','ramp',[[6,5,-3],[8,7,-16],[0,9,-18],[0,10,-14]]);
+road('inner-23','内侧上行匝道 · 二至三层','q','h','ramp',[[4,5,-7],[8,7,-28],[-5,9,-29],[-5,10,-14]]);
 road('inner-34','内侧上行匝道 · 三至四层','h','k','ramp',[[0,11,-1],[-4,13,3],[-8,15,0]]);
 road('inner-45','内侧上行匝道 · 四至五层','k','n','ramp',[[-20,15,0],[-23,16,-12],[-12,18,-21],[-3,19,-15],[-3,20,-6]]);
 road('view-two','二层观景支路','e','v','scenic',[[18,5,0]]);
 road('view-five','五层观景支路','n','lookout','scenic',[[7,20,4]]);
+road('east-three-link','三层东延主线','g','east-three','main',[[22,10,0],[35,10,0]]);
+road('east-34','东侧上行匝道 · 三至四层','east-three','east-four','ramp',[[49,11,-10],[52,13,-17],[46,15,-20],[42,15,-23]]);
+road('north-four-east','四层北侧回转主线','east-four','north-four','main',[[35,15,-43],[16,15,-46]]);
+road('north-four-west','四层西接主线','north-four','j','main',[[2,15,-31],[0,15,-22]]);
+road('north-45','北侧上行匝道 · 四至五层','north-four','north-five','ramp',[[-8,16,-50],[-6,18,-60],[14,20,-55],[20,20,-44]]);
+road('north-five-link','五层北侧接驳','north-five','goal');
 
 const network={nodes,roads};
 const compiled=compileRoads(network);
@@ -41,7 +49,7 @@ const source=CULTURAL_SOURCES.huangjuewan.url;
 export const INTERCHANGE:Level={
   id:'huangjuewan',number:4,name:'黄桷湾立交',subtitle:'五层道路，读懂每一次分流',
   intro:'朋友在第五层东侧等你。直接沿主线与匝道行走：内侧短匝道上坡集中，外侧回转路线较长、沿途可歇脚。交叉不等于连通，先认路口与层数，再决定转向。金色观景支路可选。',
-  goalName:'五层东侧赴约点',start:place('start'),goal:place('goal'),center:[0,8,0],viewSize:88,accent:'#71849b',
+  goalName:'五层东侧赴约点',start:place('start'),goal:place('goal'),center:[5,8,-7],viewSize:105,accent:'#71849b',
   network,surfaces:compiled.surfaces,transports:[],staminaScale:0.18,
   discoveries:[
     {id:'interchange-west',title:'交叉不等于连通',...place('v'),text:'黄桷湾立交以五层、二十余条匝道的立体交通形态被介绍。在这里，平面上重叠的道路仍属于不同高度，只有真正相接的匝道才能把你带到另一层。',source,mediaId:'huangjuewan'},

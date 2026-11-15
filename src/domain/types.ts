@@ -47,6 +47,7 @@ export interface Ride {
 export interface RunSnapshot {
   position: Vec3; surfaceId: string; facing: number; stamina: number;
   discoveries: string[]; consumedGroups: string[]; consumedRests: string[]; completedServices: string[];
+  knownEntrances: string[];
   distance: number; rides: number;
 }
 export interface Checkpoint { id: string; name: string; snapshot: RunSnapshot }

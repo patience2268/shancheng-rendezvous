@@ -1,7 +1,7 @@
 import {
   Mountain, ArrowRight, Volume2, VolumeX, BookOpen, Settings, MapPin, Leaf,
   Pause, X, Check, TramFront, CableCar, Layers, ArrowLeft, Plus, Minus,
-  ArrowUpDown, Fullscreen, Minimize, ArrowUpRight, Sparkles,
+  ArrowUpDown, Fullscreen, Minimize, ArrowUpRight, Sparkles, LockKeyhole, Map,
 } from 'lucide';
 
 // One 24 × 24 SVG family for every UI pictogram; see THIRD_PARTY_NOTICES.
@@ -11,6 +11,7 @@ const icons = {
   close: X, check: Check, rail: TramFront, cable: CableCar, layers: Layers,
   back: ArrowLeft, plus: Plus, minus: Minus, lift: ArrowUpDown,
   escalator: ArrowUpRight, fullscreen: Fullscreen, minimize: Minimize, spark: Sparkles,
+  lock: LockKeyhole, map: Map,
 };
 export type IconName = keyof typeof icons;
 export function icon(name: string): string {

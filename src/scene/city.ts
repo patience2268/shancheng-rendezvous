@@ -1,7 +1,10 @@
+import { terrainPads } from '../data/terrain';
+import { facadeLayout } from './buildings';
+import { roadEdges } from './road-edges';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { Level, RunState, Solid, Surface, Transport, Vec3 } from '../domain/types';
-import { bodyBlocked, contains, heightAt, surfacesNear } from '../movement/ground';
+import { bodyBlocked, heightAt } from '../movement/ground';
 import { compileRoads } from '../movement/roads';
 import { beamCollider, boxCollider, CAMERA_PITCH_MIN, CAMERA_PITCH_MAX, clampOrbit, followOrbit, wrapAngle, resolveFollowCamera, sphereInside, structuralSolids, surfaceCollider, sweepCamera } from './collision';
 import type { CameraSolid } from './collision';
@@ -166,21 +169,26 @@ export class CityScene {
     // Facade detail is decorative, grouped without adding tiny movement/camera obstacles.
     const details=new THREE.Group();this.staticRoot.add(details);
     this.box(details,[x,y+height+0.08,z],[width+0.16,0.16,depth+0.16],C.teal);
-    const rows=Math.max(1,Math.floor((height-.2)/1.05)),columns=Math.max(1,Math.floor(width/0.85));
-    for(let r=0;r<rows;r++)for(let c=0;c<columns;c++){
-      const xx=x-width/2+(c+0.5)*width/columns,yy=y+.64+r*1.05,s=seed+r*19+c*5;
-      this.box(details,[xx,yy,z+depth/2+.025],[.34,.46,.04],random(s)>.78?'#e8c88b':random(s+4)>.5?'#6e8d84':'#879f98');
-      if(random(s+1)>.71&&width<9){
-        this.box(details,[xx,yy-.28,z+depth/2+.22],[.62,.08,.44],'#b5b099');
-        this.box(details,[xx,yy-.06,z+depth/2+.41],[.62,.30,.055],'#92a597');
-      }else if(random(s+2)>.82){
-        this.box(details,[xx+.18,yy-.31,z+depth/2+.12],[.26,.18,.18],'#d6d6c7');
-        this.box(details,[xx+.18,yy-.31,z+depth/2+.22],[.17,.10,.015],'#9aa99e');
+    const layout=facadeLayout(height,width,depth),{floors,storey,columns,sideColumns}=layout;
+    for(let r=0;r<floors;r++)for(let c=0;c<columns;c++){
+      const xx=x-width/2+(c+.5)*width/columns,yy=y+r*storey+1.55,s=seed+r*19+c*5;
+      if(r===0&&c===Math.floor(columns/2)){
+        this.box(details,[xx,y+layout.doorHeight/2,z+depth/2+.035],[.96,layout.doorHeight,.06],'#56766d');
+        this.box(details,[xx,y+2.07,z+depth/2+.28],[1.25,.12,.64],'#afaa94');
+      }else{
+        this.box(details,[xx,yy,z+depth/2+.025],[layout.windowWidth,layout.windowHeight,.05],random(s)>.78?'#e8c88b':random(s+4)>.5?'#6e8d84':'#879f98');
+        if(r>0&&random(s+1)>.55&&width<9){
+          this.box(details,[xx,yy-.68,z+depth/2+.31],[1.15,.12,.64],'#b5b099');
+          this.box(details,[xx,yy-.32,z+depth/2+.62],[1.15,.60,.07],'#92a597');
+        }else if(random(s+2)>.7){
+          this.box(details,[xx+.35,yy-.67,z+depth/2+.19],[.48,.32,.30],'#d6d6c7');
+          this.box(details,[xx+.35,yy-.67,z+depth/2+.35],[.31,.18,.02],'#9aa99e');
+        }
       }
     }
-    for(let r=0;r<rows;r++)for(let c=0;c<Math.max(1,Math.floor(depth/1.5));c++){
-      const zz=z-depth/2+.75+c*1.4;
-      this.box(details,[x+width/2+.025,y+.7+r*1.05,zz],[.04,.45,.4],random(seed+r*9+c)>.7?'#d9c69a':'#849c8c');
+    for(let r=0;r<floors;r++)for(let c=0;c<sideColumns;c++){
+      const zz=z-depth/2+(c+.5)*depth/sideColumns;
+      this.box(details,[x+width/2+.025,y+r*storey+1.55,zz],[.05,layout.windowHeight,.78],random(seed+r*9+c)>.7?'#d9c69a':'#849c8c');
     }
     if(height>3){
       this.box(details,[x+width*.18,y+height+.35,z-.3],[.85,.5,.7],'#c2bca7');
@@ -197,16 +205,16 @@ export class CityScene {
     const[x0,x1,z0,z1]=s.bounds,w=x1-x0,d=z1-z0;
     const polygon=s.polygon??[[x0,z0],[x1,z0],[x1,z1],[x0,z1]];
     const top=polygon.map(p=>[p[0],heightAt(s,p[0],p[1]),p[1]]);
-    const order=s.id.startsWith('junction-')?0.034:s.roadId?0.008+this.level.network!.roads.findIndex(r=>r.id===s.roadId)*0.0008:0;
+    const order=this.level.network?.008:0;
     const vertices=top.flatMap(p=>[p[0],p[1]+order,p[2]]),indices:number[]=[];
     for(let i=1;i<polygon.length-1;i++)indices.push(0,i+1,i);
     const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));geo.setIndex(indices);geo.computeVertexNormals();
-    const asphalt=this.level.network?['#526976','#5b737b','#5e7581','#596c7c','#627986'][(s.tier??1)-1]:C.road;
+    const asphalt=this.level.network?'#566e78':C.road;
     if(s.terrain!=='stairs')this.staticRoot.add(new THREE.Mesh(geo,this.mat(asphalt)));else geo.dispose();
     const thickness=s.thickness??0.55,slab:number[]=[],faces:number[]=[];
     top.forEach(p=>slab.push(...p));top.forEach(p=>slab.push(p[0],p[1]-thickness,p[2]));
     const n=top.length;
-    for(let i=0;i<n;i++){const j=(i+1)%n;faces.push(i,j,i+n,j,j+n,i+n);}
+    if(!this.level.network)for(let i=0;i<n;i++){const j=(i+1)%n;faces.push(i,j,i+n,j,j+n,i+n);}
     for(let i=1;i<n-1;i++)faces.push(n,n+i,n+i+1);
     const underside=new THREE.BufferGeometry();underside.setAttribute('position',new THREE.Float32BufferAttribute(slab,3));underside.setIndex(faces);underside.computeVertexNormals();
     this.staticRoot.add(new THREE.Mesh(underside,this.mat(this.level.network?'#c3baa3': '#a4ad99')));
@@ -232,11 +240,9 @@ export class CityScene {
   }
   private build():void {
     const center=this.level.center;
-    if(this.level.id!=='yangtze-cableway'){
-      this.box(this.staticRoot,[0,-1.35,0],[this.level.network?82:this.level.id==='liziba'?70:66,1.8,this.level.network?82:this.level.id==='liziba'?40:36],'#a9b393');
-      this.box(this.staticRoot,[0,-2.45,0],[this.level.network?81:this.level.id==='liziba'?69:65,0.5,this.level.network?81:this.level.id==='liziba'?39:35],'#c8c4ab');
-    }else{
-      this.box(this.staticRoot,[-7,0,2],[16,1.6,21],'#a9b393');this.box(this.staticRoot,[22,0,2],[14,1.6,21],'#a9b393');
+    for(const {position,size} of terrainPads(this.level)){
+      this.box(this.staticRoot,position,size,'#a9b393');
+      if(this.level.id!=='yangtze-cableway')this.box(this.staticRoot,[position[0],-2.45,position[2]],[size[0]-.5,.5,size[2]-.5],'#c8c4ab');
     }
     this.level.surfaces.forEach(s=>this.surface(s));
     this.backdrop();
@@ -284,7 +290,7 @@ export class CityScene {
       for(const x of [1,17])this.box(this.staticRoot,[x,3,-35],[0.4,10,0.5],'#9aaba0');
       for(const x of [1,17])for(const end of [5,9,13])this.beam(this.staticRoot,[x,8,-35],[end,2,-35],0.04,0.04,'#a5b1a3');
     }else{
-      for(let i=0;i<12;i++)this.building([-44+(i%6)*17,0,i<6?-44:44],4.5,5,6+(i*3)%12,'#bac5b2');
+      for(let i=0;i<12;i++)this.building([-58+(i%6)*24,0,i<6?-68:51],4.5,5,6+(i*3)%12,'#bac5b2');
       for(let i=0;i<16;i++)this.tree(-38+(i%8)*10,0,i<8?-38:38,1.35);
     }
   }
@@ -318,8 +324,9 @@ export class CityScene {
     for(const z of[-1,4,8])this.box(this.staticRoot,[-16.7,2.6,z],[0.35,5.6,0.35],'#a7b198');
     this.sign([-27,1.5,5.4],'梯道 ↑ 佛图关站',4.1,0.55);
     this.sign([-21.3,1.55,12.3],'直梯入口 →',3.2,.5);
+    this.sign([24,7.8,-2.5],'回望步道 → 缓行出站',4.6,.55);
     this.sign([19,7.8,0.4],'出站梯道 ↓ 观景平台',5,0.55);
-    for(const[x,z,h]of[[-33,0,7],[-8,1,8],[27,-4,9],[28,13,7]] as number[][])this.building([x,0,z],3.6,4,h,'#d7c2a1');
+    for(const[x,z,h]of[[-33,0,7],[-8,1,8],[35,-6,9],[39,12,7]] as number[][])this.building([x,0,z],3.6,4,h,'#d7c2a1');
     for(const[x,z]of[[-30,15],[-12,14],[7,17],[24,16],[-19,2]])this.tree(x,0,z,1);
   }
   private crown():void {
@@ -347,12 +354,13 @@ export class CityScene {
       this.sign([2,y+5.6,z+0.37],label,7,0.65,'#786e50');
     }
     // Small street blocks frame three stair flights without filling the walkable routes.
-    for(const[x,y,z,w,d,h]of[[-18,0,2,3,3,5],[-20,3,-5,4,3,5],[-31,0,0,3,7,10]] as number[][])
+    for(const[x,y,z,w,d,h]of[[-18,0,2,3,3,5],[-20,3,-5,4,3,5],[-41,0,-10,3,7,10]] as number[][])
       this.building([x,y,z],w,d,h,'#cbbca1');
     this.sign([-14,1.6,5.6],'梯道 ↑ 中层街巷',4.6,0.55);
     this.sign([-15,4.5,-2.6],'近路 ↑  /  观景 →',5.4,0.55);
     this.sign([-23,4.6,0.6],'折返梯道 · 歇脚处 ↑',4.8,0.5);
     this.sign([-6,4.4,-2.8],'侧望平台 · 可选行记',4.6,0.5);
+    this.sign([-30,4.7,-2.5],'街巷回环 → 折返平台',4.8,.55);
     for(const[x,z]of[[-19,13],[11,12],[-27,10]])this.tree(x,0,z,1);
   }
   private cableway():void {
@@ -365,11 +373,13 @@ export class CityScene {
         this.box(this.staticRoot,[x+dx,7.7,5+dz],[0.28,4.2,0.3],'#b8b49a');
         this.registerSolid({id:'cable-column-'+x+':'+dx+':'+dz,min:[x+dx-0.14,5.6,5+dz-0.15],max:[x+dx+0.14,9.8,5+dz+0.15]});
       }
-      this.box(this.staticRoot,[x,6.5,8.6],[3.8,0.7,0.3],'#d2ba8f');
-      this.registerSolid({id:'cable-edge-'+x,min:[x-1.9,6.15,8.45],max:[x+1.9,6.85,8.75]});
+      const edgeWidth=x===16?2.1:3.8,edgeCenter=x===16?x-.85:x;
+      this.box(this.staticRoot,[edgeCenter,6.5,8.6],[edgeWidth,0.7,0.3],'#d2ba8f');
+      this.registerSolid({id:'cable-edge-'+x,min:[edgeCenter-edgeWidth/2,6.15,8.45],max:[edgeCenter+edgeWidth/2,6.85,8.75]});
       this.box(this.staticRoot,[x,10,3.7],[3.3,0.4,0.8],'#95a79c');
       for(const dx of [-2.8,2.8])this.box(this.staticRoot,[x+dx,9.4,1.8],[0.28,1.6,0.45],'#8fa095');
     }
+    this.sign([16,7.8,9.5],'缓坡观江道 ↓',4.2,.55);
     const cable=this.level.transports.find(t=>t.kind==='cableway')!;
     for(const dz of[-0.3,0.3])for(let i=0;i<cable.path.length-1;i++){
       const a=cable.path[i],b=cable.path[i+1];
@@ -387,19 +397,12 @@ export class CityScene {
   }
   private interchange():void {
     const compiled=compileRoads(this.level.network!);
-    const verge=['#c4a35b','#65a58d','#8aa5c2','#b5a0be','#e0b573'];
-    for(const{road,points,left,right}of compiled.roads){
+    for(const mesh of roadEdges(this.level))this.staticRoot.add(mesh);
+    for(const{points}of compiled.roads){
       let marks=0;
       for(let i=1;i<points.length;i++){
         const a=points[i-1],b=points[i],d=Math.hypot(b[0]-a[0],b[2]-a[2]);
-        for(const edge of[left,right]){
-          const p=edge[i-1],q=edge[i];
-          const x=(p[0]+q[0])/2,z=(p[2]+q[2])/2,y=(p[1]+q[1])/2;
-          if(surfacesNear(this.level,x,z).some(s=>s.roadId!==road.id&&contains(s,x,z)&&Math.abs(heightAt(s,x,z)-y)<0.06))continue;
-          this.beam(this.staticRoot,[p[0],p[1]+0.13,p[2]],[q[0],q[1]+0.13,q[2]],0.18,0.28,'#d4cbb7');
-          this.beam(this.staticRoot,[p[0],p[1]+0.285,p[2]],[q[0],q[1]+0.285,q[2]],0.19,0.025,verge[road.tier-1]);
-        }
-        if(Math.floor(marks/2.5)%2===0)this.beam(this.staticRoot,[a[0],a[1]+0.018,a[2]],[b[0],b[1]+0.018,b[2]],0.065,0.018,'#e2dfca');
+        if(Math.floor(marks/2.5)%2===0)this.beam(this.staticRoot,[a[0],a[1]+.022,a[2]],[b[0],b[1]+.022,b[2]],.065,.012,'#e2dfca');
         marks+=d;
       }
     }
